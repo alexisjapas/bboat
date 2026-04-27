@@ -1,43 +1,63 @@
+use avian3d::prelude::*;
 use bevy::prelude::*;
 
 fn main() {
     let mut app = App::new();
 
-    app.add_plugins(DefaultPlugins);
+    app.add_plugins((DefaultPlugins, PhysicsPlugins::default()));
     app.add_systems(Startup, setup);
+    app.add_systems(Update, move_player);
+
     app.run();
 }
+
+#[derive(Component)]
+struct Player;
 
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
+    // light
+    commands.spawn((
+        PointLight {
+            shadows_enabled: true,
+            color: Color::srgba(1., 1., 1., 1.),
+            ..default()
+        },
+        Transform::from_xyz(4.0, 8.0, 4.0),
+    ));
+    // floor
+    commands.spawn((
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(8., 8.))),
+        MeshMaterial3d(materials.add(Color::WHITE)),
+        Transform::default(),
+        RigidBody::Static,
+        Collider::half_space(Vec3::Y),
+    ));
+    // player
+    commands.spawn((
+        Player,
+        Mesh3d(meshes.add(Cuboid::new(1.0, 1.0, 1.0))),
+        MeshMaterial3d(materials.add(Color::srgba(1., 1., 1., 1.))),
+        Transform::from_xyz(0.0, 5., 0.0),
+        RigidBody::Dynamic,
+        Collider::cuboid(1., 1., 1.),
+    ));
+
     // Camera
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(-2.5, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
+}
 
-    // circular base
-    commands.spawn((
-        Mesh3d(meshes.add(Circle::new(4.0))),
-        MeshMaterial3d(materials.add(Color::WHITE)),
-        Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
-    ));
-    // cube
-    commands.spawn((
-        Mesh3d(meshes.add(Cuboid::new(1.0, 1.0, 1.0))),
-        MeshMaterial3d(materials.add(Color::srgb_u8(124, 144, 255))),
-        Transform::from_xyz(0.0, 1.5, 0.0),
-    ));
-    // light
-    commands.spawn((
-        PointLight {
-            shadows_enabled: true,
-            color: Color::srgba(0.4, 0.8, 0.5, 1.),
-            ..default()
-        },
-        Transform::from_xyz(4.0, 8.0, 4.0),
-    ));
+fn move_player(
+    input: Res<ButtonInput<KeyCode>>,
+    mut query: Query<(Entity, &mut Transform, &mut LinearVelocity, &Collider), With<Player>>,
+) {
+    let Ok((entity, mut transform, mut velocity, collider)) = query.single_mut() else {
+        return;
+    };
 }
